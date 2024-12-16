@@ -1,0 +1,107 @@
+name: Crowdin Upload
+description: "This action uploads translations to Crowdin based on changes detected in translation files."
+author: "eXo Platform"
+inputs:
+  CROWDIN_MAINTENANCE_BRANCH_VERSION:
+    description: The Crowdin maintenance branch version to use (optional for stable branches).
+    default: ""
+    required: false
+  CROWDIN_PROJECT_ID:
+    description: The Crowdin Project ID.
+    required: true
+  CROWDIN_PERSONAL_TOKEN:
+    description: Personal token for accessing Crowdin API.
+    required: true
+  GH_TOKEN:
+    description: GitHub token for private repository access (defaults to github.token if not provided).
+    required: false
+runs:
+  using: "composite"
+  steps:
+    # Step 1: Checkout repository
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ inputs.GH_TOKEN || github.token }}
+
+    # Step 2: Get list of changed files
+    - name: Get Changed Files
+      uses: tj-actions/changed-files@v45
+      id: changedFilesStep
+      with:
+        token: ${{ inputs.GH_TOKEN || github.token }}
+
+    # Step 3: Check if translation files have changed
+    - name: Check Translation File Changes
+      shell: bash
+      id: checkTranslationChangesStep
+      run: |
+        changed_files="${{ steps.changedFilesStep.outputs.all_changed_files }}"
+        if [[ $changed_files == *".properties"* || $changed_files == *".xml"* || $changed_files == *"crowdin.yml"* ]]; then
+          echo "✅ Translation file changes detected!"
+          echo "translationFilesChanged=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ No translation file changes found."
+          echo "translationFilesChanged=false" >> $GITHUB_OUTPUT
+        fi
+
+    # Step 4: Check Crowdin project build status
+    - name: Check Crowdin Project Build Status
+      if: steps.checkTranslationChangesStep.outputs.translationFilesChanged == 'true'
+      shell: bash
+      id: checkCrowdinBuildStatusStep
+      run: |
+        wait_attempts=0
+        max_attempts=10
+        while [ "$(curl -s -H "Authorization: Bearer ${{ inputs.CROWDIN_PERSONAL_TOKEN }}" \
+                     https://crowdin.com/api/v2/projects/${{ inputs.CROWDIN_PROJECT_ID }}/translations/builds \
+                     | jq -r 'any(.data[].data; select(.status != "finished"))')" == "true" ] && [ $wait_attempts -lt $max_attempts ]; do
+          sleep 10
+          ((wait_attempts++))
+        done
+        if [ $wait_attempts -eq $max_attempts ]; then
+          echo "⏳ Crowdin project build still in progress after $max_attempts attempts."
+          echo "crowdin_project_available=false" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Crowdin project build is available!"
+          echo "crowdin_project_available=true" >> $GITHUB_OUTPUT
+        fi
+
+    # Step 5: Determine Crowdin project branch name
+    - name: Determine Crowdin Project Branch
+      if: steps.checkCrowdinBuildStatusStep.outputs.crowdin_project_available == 'true'
+      shell: bash
+      id: computeCrowdinBranchStep
+      run: |
+        branch_name=$(echo "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}")
+        if [ -z "$branch_name" ]; then
+          echo "❌ Error: Could not determine branch name. Abort!"
+          exit 1
+        fi
+        if [[ "$branch_name" =~ ^stable/ ]]; then
+          if [ -z "${{ inputs.CROWDIN_MAINTENANCE_BRANCH_VERSION }}" ]; then
+            echo "❌ Error: Maintenance branch version is required for $branch_name. Abort!"
+            exit 1
+          fi
+          echo "crowdinBranch=${{ inputs.CROWDIN_MAINTENANCE_BRANCH_VERSION }}" >> $GITHUB_OUTPUT
+        elif [[ "$branch_name" =~ ^(develop|master)$ ]]; then
+          echo "crowdinBranch=" >> $GITHUB_OUTPUT
+        else
+          echo "crowdinBranch=$branch_name" >> $GITHUB_OUTPUT
+        fi
+
+    # Step 6: Upload source translation files to Crowdin
+    - name: Upload Source Translations to Crowdin
+      uses: crowdin/github-action@v2
+      if: steps.checkCrowdinBuildStatusStep.outputs.crowdin_project_available == 'true'
+      with:
+        upload_sources: true
+        upload_translations: false
+        download_translations: false
+        crowdin_branch_name: ${{ steps.computeCrowdinBranchStep.outputs.crowdinBranch }}
+      env:
+        CROWDIN_PROJECT_ID: ${{ inputs.CROWDIN_PROJECT_ID }}
+        CROWDIN_PERSONAL_TOKEN: ${{ inputs.CROWDIN_PERSONAL_TOKEN }}
+branding:
+  icon: "anchor"
+  color: "gray-dark"
