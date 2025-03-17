@@ -26,7 +26,7 @@ runs:
 
     # Step 2: Get list of changed files
     - name: Get Changed Files
-      uses: tj-actions/changed-files@v45
+      uses: tj-actions/changed-files@v46
       id: changedFilesStep
       with:
         token: ${{ inputs.GH_TOKEN || github.token }}
