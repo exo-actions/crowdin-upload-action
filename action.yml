@@ -2,6 +2,12 @@ name: Crowdin Upload Action
 description: "Uploads translation source files to Crowdin if there are changes"
 author: "eXo Platform"
 inputs:
+  CROWDIN_PROJECT_ID:
+    description: Crowdin project ID
+    required: true
+  CROWDIN_PERSONAL_TOKEN:
+    description: Crowdin personal access token
+    required: true
   CROWDIN_MAINTENANCE_BRANCH_VERSION:
     description: Crowdin maintenance branch name
     required: false
@@ -11,7 +17,6 @@ inputs:
     required: false
     default: >-
       "_en!": "","ar_SA": "ar","ar_OM": "aro","az_AZ": "az","ca_ES": "ca","ceb_PH": "ceb", "co_FR": "co","cs_CZ": "cs","de_DE": "de","el_GR": "el","en_US": "en","es_ES": "es_ES","eu_ES": "eu","fa_IR": "fa", "fi_FI": "fi","fil_PH": "fil","fr_FR": "fr","hi_IN": "hi","hu_HU": "hu","id_ID": "id","it_IT": "it","ja_JP": "ja", "kab_KAB": "kab","ko_KR": "ko","lt_LT": "lt","ms_MY": "ms","nl_NL": "nl","no_NO": "no","pcm_NG": "pcm","pl_PL": "pl", "pt_BR": "pt_BR","pt_PT": "pt_PT","ro_RO": "ro","ru_RU": "ru","sk_SK": "sk","sl_SI": "sl","sq_AL": "sq", "sv_SE": "sv_SE","th_TH": "th","tl_PH": "tl","tr_TR": "tr","uk_UA": "uk","ur_IN": "ur_IN","vi_VN": "vi", "zh_CN": "zh_CN","zh_TW": "zh_TW"
-
 runs:
   using: "composite"
   steps:
@@ -43,8 +48,8 @@ runs:
       shell: bash
       run: |
         wait_exec=0;
-        while [ $(curl -s -H "Accept: application/json" -H "Authorization: Bearer ${{ secrets.CROWDIN_PERSONAL_TOKEN }}" \
-          https://crowdin.com/api/v2/projects/${{ secrets.CROWDIN_PROJECT_ID }}/translations/builds \
+        while [ $(curl -s -H "Accept: application/json" -H "Authorization: Bearer ${{ inputs.CROWDIN_PERSONAL_TOKEN }}" \
+          https://crowdin.com/api/v2/projects/${{ inputs.CROWDIN_PROJECT_ID }}/translations/builds \
           | jq -r 'any(.data[].data; select(.status != "finished" ))') == "true" ] && (( wait_exec<10 )) ; do
           sleep 10;
           ((wait_exec=wait_exec+1));
@@ -89,8 +94,8 @@ runs:
         download_translations: false
         crowdin_branch_name: ${{ steps.computeCrowdinProjectBranchNameStep.outputs.crowdinBranch }}
       env:
-        CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
-        CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+        CROWDIN_PROJECT_ID: ${{ inputs.CROWDIN_PROJECT_ID }}
+        CROWDIN_PERSONAL_TOKEN: ${{ inputs.CROWDIN_PERSONAL_TOKEN }}
         YML_CROWDIN_LANGUAGES_ARG: ${{ inputs.YML_CROWDIN_LANGUAGES_ARG }}
 branding:
   icon: "anchor"
