@@ -11,7 +11,7 @@ inputs:
   CROWDIN_MAINTENANCE_BRANCH_VERSION:
     description: Crowdin maintenance branch name
     required: false
-    default: ""
+    default: "maintenance"
   YML_CROWDIN_LANGUAGES_ARG:
     description: Crowdin language mapping for crowdin.yml
     required: false
