@@ -24,7 +24,7 @@ runs:
       uses: actions/checkout@v6
 
     - name: Get git changed files
-      uses: tj-actions/changed-files@v46
+      uses: tj-actions/changed-files@v47
       id: changedFilesStep
       with:
         token: ${{ github.token }}
