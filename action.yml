@@ -87,7 +87,7 @@ runs:
 
     - name: Crowdin upload source translation files
       if: steps.checkCrowdinProjetBuildAvailabilityStep.outputs.crowdin_project_available == 'true'
-      uses: crowdin/github-action@v2
+      uses: crowdin/github-action@v3
       with:
         upload_sources: true
         upload_translations: false
