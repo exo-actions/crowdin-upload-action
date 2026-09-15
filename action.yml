@@ -85,6 +85,18 @@ runs:
           echo "crowdinBranch=${branch_ref}" >> $GITHUB_OUTPUT
         fi
 
+    - name: Substitute language mapping placeholder in crowdin.yml
+      if: steps.checkCrowdinProjetBuildAvailabilityStep.outputs.crowdin_project_available == 'true'
+      shell: bash
+      env:
+        YML_CROWDIN_LANGUAGES_ARG: ${{ inputs.YML_CROWDIN_LANGUAGES_ARG }}
+      run: |
+        if [ -f crowdin.yml ]; then
+          content="$(cat crowdin.yml)"
+          content="${content//YML_CROWDIN_LANGUAGES_ARG/$YML_CROWDIN_LANGUAGES_ARG}"
+          printf '%s' "$content" > crowdin.yml
+        fi
+
     - name: Crowdin upload source translation files
       if: steps.checkCrowdinProjetBuildAvailabilityStep.outputs.crowdin_project_available == 'true'
       uses: crowdin/github-action@v3
